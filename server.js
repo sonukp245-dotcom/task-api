@@ -1,9 +1,14 @@
 const express = require("express");
+const swaggerUi = require("swagger-ui-express");
+const swaggerDocument = require("./openapi.json");
 
 const app = express();
 const PORT = 3000;
 
 app.use(express.json());
+
+// Stage 5: Swagger UI
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 let tasks = [
   {
@@ -62,7 +67,7 @@ app.get("/tasks/:id", (req, res) => {
 app.post("/tasks", (req, res) => {
   const { title } = req.body;
 
-  if (!title || title.trim() === "") {
+  if (!title || typeof title !== "string" || title.trim() === "") {
     return res.status(400).json({
       error: "Title is required"
     });
