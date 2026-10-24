@@ -1,34 +1,18 @@
+
 const express = require("express");
 const swaggerUi = require("swagger-ui-express");
 const swaggerDocument = require("./openapi.json");
+const db = require("./db");
 
 const app = express();
 const PORT = 3000;
 
 app.use(express.json());
 
-// Stage 5: Swagger UI
+// Swagger UI
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-let tasks = [
-  {
-    id: 1,
-    title: "Learn JavaScript",
-    done: false
-  },
-  {
-    id: 2,
-    title: "Build an API",
-    done: false
-  },
-  {
-    id: 3,
-    title: "Test the API",
-    done: true
-  }
-];
-
-// Stage 1: Root endpoint
+// Root endpoint
 app.get("/", (req, res) => {
   res.json({
     name: "Task API",
@@ -37,102 +21,53 @@ app.get("/", (req, res) => {
   });
 });
 
-// Stage 1: Health endpoint
+// Health endpoint
 app.get("/health", (req, res) => {
   res.json({
     status: "ok"
   });
 });
 
-// Stage 2: Get all tasks
+// Stage 1: Get all tasks from SQLite
 app.get("/tasks", (req, res) => {
-  res.json(tasks);
+  const tasks = db.prepare("SELECT * FROM tasks").all();
+
+  res.json(
+    tasks.map((task) => ({
+      ...task,
+      done: Boolean(task.done)
+    }))
+  );
 });
 
-// Stage 2: Get one task
+// Stage 1: Get one task from SQLite
 app.get("/tasks/:id", (req, res) => {
   const id = Number(req.params.id);
-  const task = tasks.find((task) => task.id === id);
+
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(404).json({
+      error: "Task not found"
+    });
+  }
+
+  const task = db.prepare(
+    "SELECT * FROM tasks WHERE id = ?"
+  ).get(id);
 
   if (!task) {
     return res.status(404).json({
-      error: `Task ${id} not found`
+      error: "Task not found"
     });
   }
 
-  res.json(task);
+  res.json({
+    ...task,
+    done: Boolean(task.done)
+  });
 });
 
-// Stage 3: Create a new task
-app.post("/tasks", (req, res) => {
-  const { title } = req.body;
-
-  if (!title || typeof title !== "string" || title.trim() === "") {
-    return res.status(400).json({
-      error: "Title is required"
-    });
-  }
-
-  const newTask = {
-    id: tasks.length + 1,
-    title: title.trim(),
-    done: false
-  };
-
-  tasks.push(newTask);
-
-  res.status(201).json(newTask);
-});
-
-// Stage 4: Update a task
-app.put("/tasks/:id", (req, res) => {
-  const id = Number(req.params.id);
-  const task = tasks.find((task) => task.id === id);
-
-  if (!task) {
-    return res.status(404).json({
-      error: `Task ${id} not found`
-    });
-  }
-
-  const { title, done } = req.body;
-
-  if (
-    (title !== undefined &&
-      (typeof title !== "string" || title.trim() === "")) ||
-    (done !== undefined && typeof done !== "boolean")
-  ) {
-    return res.status(400).json({
-      error: "Invalid title or done value"
-    });
-  }
-
-  if (title !== undefined) {
-    task.title = title.trim();
-  }
-
-  if (done !== undefined) {
-    task.done = done;
-  }
-
-  res.json(task);
-});
-
-// Stage 4: Delete a task
-app.delete("/tasks/:id", (req, res) => {
-  const id = Number(req.params.id);
-  const taskIndex = tasks.findIndex((task) => task.id === id);
-
-  if (taskIndex === -1) {
-    return res.status(404).json({
-      error: `Task ${id} not found`
-    });
-  }
-
-  tasks.splice(taskIndex, 1);
-
-  res.status(204).send();
-});
+// Temporary note:
+// POST, PUT and DELETE will be connected to SQLite in Stages 2 and 3.
 
 // Start server
 app.listen(PORT, () => {
