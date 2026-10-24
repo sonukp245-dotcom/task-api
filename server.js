@@ -66,6 +66,35 @@ app.get("/tasks/:id", (req, res) => {
   });
 });
 
+ // Stage 2: Create a new task in SQLite
+app.post("/tasks", (req, res) => {
+  const { title } = req.body;
+
+  if (
+    !title ||
+    typeof title !== "string" ||
+    title.trim() === ""
+  ) {
+    return res.status(400).json({
+      error: "Title is required"
+    });
+  }
+
+  const result = db.prepare(
+    "INSERT INTO tasks (title, done) VALUES (?, ?)"
+  ).run(title.trim(), 0);
+
+  const newTask = db.prepare(
+    "SELECT * FROM tasks WHERE id = ?"
+  ).get(result.lastInsertRowid);
+
+  res.status(201).json({
+    ...newTask,
+    done: Boolean(newTask.done)
+  });
+});
+
+
 // Temporary note:
 // POST, PUT and DELETE will be connected to SQLite in Stages 2 and 3.
 
